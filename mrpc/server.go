@@ -41,6 +41,7 @@ func (server *Server) Accept(lis net.Listener) {
 			log.Println("rpc server: accept error:", err)
 			return
 		}
+		//开启协程处理链接
 		go server.ServerConn(conn)
 	}
 }
@@ -50,6 +51,7 @@ func (server *Server) ServerConn(conn io.ReadWriteCloser) {
 		_ = conn.Close()
 	}()
 
+	//TODO
 	var opt Option
 	if err := json.NewDecoder(conn).Decode(&opt); err != nil {
 		log.Println("rpc server: options json decode error", err)
@@ -61,12 +63,14 @@ func (server *Server) ServerConn(conn io.ReadWriteCloser) {
 		return
 	}
 
+	//获取对应协议类实例化函数
 	f := core.NewCodecFuncMap[opt.CodecType]
 	if f == nil {
 		log.Printf("rpc server: invalid codec type %s", opt.CodecType)
 		return
 	}
 
+	//实例化协议类并开始处理
 	server.serverCodec(f(conn))
 }
 
@@ -86,6 +90,7 @@ func (server *Server) serverCodec(cc core.Codec) {
 			server.sendResponse(cc, req.h, invalidRequest, sending)
 		}
 		wg.Add(1)
+		//处理请求，应答
 		go server.handleRequest(cc, req, sending, wg)
 	}
 	wg.Wait()
@@ -98,6 +103,7 @@ type request struct {
 }
 
 func (server *Server) readRequestHeader(cc core.Codec) (*core.Header, error) {
+	//TODO
 	var h core.Header
 	if err := cc.ReadHeader(&h); err != nil {
 		if err != io.EOF && err != io.ErrUnexpectedEOF {
@@ -109,12 +115,14 @@ func (server *Server) readRequestHeader(cc core.Codec) (*core.Header, error) {
 }
 
 func (server *Server) readRequest(cc core.Codec) (*request, error) {
+	//获取header内容
 	h, err := server.readRequestHeader(cc)
 	if err != nil {
 		return nil, err
 	}
 	req := &request{h: h}
 
+	//获取body内容 //TODO
 	req.argv = reflect.New(reflect.TypeOf(""))
 	if err = cc.ReadBody(req.argv.Interface()); err != nil {
 		log.Println("rpc server: read argv err:", err)
@@ -136,6 +144,7 @@ func (server *Server) handleRequest(cc core.Codec, req *request, sending *sync.M
 	// day 1, just print argv and send a hello message
 	defer wg.Done()
 	log.Println(req.h, req.argv.Elem())
-	req.replyv = reflect.ValueOf(fmt.Sprintf("geerpc resp %d", req.h.Seq))
+	//TODO
+	req.replyv = reflect.ValueOf(fmt.Sprintf("mrpc resp %d", req.h.Seq))
 	server.sendResponse(cc, req.h, req.replyv.Interface(), sending)
 }

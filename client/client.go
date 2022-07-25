@@ -2,6 +2,7 @@ package client
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"sync"
 
@@ -92,4 +93,33 @@ func (client *Client) terminateCalls(err error) {
 		call.Error = err
 		call.done()
 	}
+}
+
+func (client *Client) recevie() {
+	var err error
+	for err == nil {
+		var h core.Header
+		//call 存在，但服务端处理出错，即 h.Error 不为空
+		if err = client.cc.ReadHeader(&h); err != nil {
+			break
+		}
+		call := client.removeCall(h.Seq)
+		switch {
+		case call == nil:
+			err = client.cc.ReadBody(nil)
+		case h.Error != "":
+			call.Error = fmt.Errorf(h.Error)
+			err = client.cc.ReadBody(nil)
+			call.done()
+		default:
+			err = client.cc.ReadBody(call.Reply)
+			if err != nil {
+				call.Error = errors.New("reading body " + err.Error())
+			}
+			call.done()
+		}
+	}
+
+	// error occurs, so terminateCalls pending calls
+	client.terminateCalls(err)
 }

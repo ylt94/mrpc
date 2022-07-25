@@ -27,7 +27,7 @@ func startServer(addr chan string) {
 func main() {
 	addr := make(chan string)
 	go startServer(addr)
-
+	time.Sleep(time.Second*8)
 	conn, err := net.Dial("tcp", <-addr)
 	if err != nil {
 		log.Fatal("client dial err", err)
@@ -38,20 +38,23 @@ func main() {
 	log.Println("client dial succ")
 	time.Sleep(time.Second)
 
-	_ = json.NewDecoder(conn).Decode(mrpc.DefaultOption)
-	cc := core.NewGobCodec(conn)
+	err = json.NewEncoder(conn).Encode(mrpc.DefaultOption)
+	if err != nil {
+		log.Fatal("json decode err", err)
+	}
 
+	cc := core.NewGobCodec(conn)
 	for i := 1; i <= 5; i++ {
 		h := &core.Header{
-			ServiceMethod: "Test",
-			Seq:           string(i),
+			ServiceMethod: "Foo.Sum",
+			Seq:           uint64(i),
 		}
 
 		_ = cc.Write(h, fmt.Sprintf("client send requset %d", h.Seq))
 		_ = cc.ReadHeader(h)
-		log.Println("reqquese over")
+
 		var resp string
 		_ = cc.ReadBody(&resp)
-		log.Println("client get response", resp)
+		log.Println("client get response:", resp)
 	}
 }

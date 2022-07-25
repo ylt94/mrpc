@@ -6,7 +6,7 @@ import (
 
 type Header struct {
 	ServiceMethod string
-	Seq           string
+	Seq           uint64
 	Error         string
 }
 

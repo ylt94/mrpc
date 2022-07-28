@@ -138,7 +138,7 @@ func NewClient(conn net.Conn, opt *mrpc.Option) (*Client, error) {
 		return nil, err
 	}
 
-	if err := json.NewDecoder(conn).Decode(opt); err != nil {
+	if err := json.NewEncoder(conn).Encode(opt); err != nil {
 		log.Println("rpc client: options send error: ", err)
 		_ = conn.Close()
 		return nil, err
@@ -153,6 +153,8 @@ func NewClientCodec(cc core.Codec, opt *mrpc.Option) *Client {
 		cc:      cc,
 		opt:     opt,
 		pending: make(map[uint64]*Call),
+		// sending: sync.Mutex{},
+		// mu:      sync.Mutex{},
 	}
 	go client.recevie()
 	return client

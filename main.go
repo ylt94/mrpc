@@ -1,13 +1,11 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net"
 	"sync"
 	"time"
 
-	"github.com/ylt94/mrpc/client"
 	"github.com/ylt94/mrpc/mrpc"
 )
 
@@ -24,6 +22,7 @@ func startServer(addr chan string) {
 }
 
 func main() {
+	//DAY 1
 	// addr := make(chan string)
 	// go startServer(addr)
 	// time.Sleep(time.Second*8)
@@ -57,30 +56,65 @@ func main() {
 	// 	log.Println("client get response:", resp)
 	// }
 
+	//DAY 2
+	// log.SetFlags(0)
+	// addr := make(chan string)
+	// go startServer(addr)
+
+	// client, err := client.Dail("tcp", <-addr)
+	// if err != nil {
+	// 	log.Fatal("client create err:", err)
+	// }
+	// defer func() { _ = client.Close() }()
+
+	// time.Sleep(time.Second)
+	// var wg sync.WaitGroup
+
+	// for i := 0; i < 5; i++ {
+	// 	wg.Add(1)
+	// 	go func(i int) {
+	// 		defer wg.Done()
+	// 		args := fmt.Sprintf("mrpc req %d", i)
+	// 		var reply string
+	// 		if err := client.Call("Test.test", args, &reply); err != nil {
+	// 			log.Fatal("client call Test.test error:", err)
+	// 		}
+	// 		log.Println("reply:", reply)
+	// 	}(i)
+	// }
+	// wg.Wait()
+
+	//DAY 3
 	log.SetFlags(0)
 	addr := make(chan string)
 	go startServer(addr)
-
-	client, err := client.Dail("tcp", <-addr)
-	if err != nil {
-		log.Fatal("client create err:", err)
-	}
+	client, _ := geerpc.Dial("tcp", <-addr)
 	defer func() { _ = client.Close() }()
 
 	time.Sleep(time.Second)
+	// send request & receive response
 	var wg sync.WaitGroup
-
 	for i := 0; i < 5; i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			args := fmt.Sprintf("mrpc req %d", i)
-			var reply string
-			if err := client.Call("Test.test", args, &reply); err != nil {
-				log.Fatal("client call Test.test error:", err)
+			args := &Args{Num1: i, Num2: i * i}
+			var reply int
+			if err := client.Call("Foo.Sum", args, &reply); err != nil {
+				log.Fatal("call Foo.Sum error:", err)
 			}
-			log.Println("reply:", reply)
+			log.Printf("%d + %d = %d", args.Num1, args.Num2, reply)
 		}(i)
 	}
 	wg.Wait()
+
+}
+
+type Foo int
+
+type Args struct{ Num1, Num2 int }
+
+func (f Foo) Sum(args Args, reply *int) error {
+	*reply = args.Num1 + args.Num2
+	return nil
 }

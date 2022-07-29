@@ -6,19 +6,35 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ylt94/mrpc/client"
 	"github.com/ylt94/mrpc/mrpc"
 )
 
+// func startServer(addr chan string) {
+// 	lis, err := net.Listen("tcp", ":8080")
+// 	if err != nil {
+// 		log.Fatal("server network error", err)
+// 	}
+
+// 	log.Println("server start listen:", lis.Addr())
+
+// 	addr <- lis.Addr().String()
+// 	mrpc.Accept(lis)
+// }
+
 func startServer(addr chan string) {
-	lis, err := net.Listen("tcp", ":8080")
-	if err != nil {
-		log.Fatal("server network error", err)
+	var foo Foo
+	if err := mrpc.Register(&foo); err != nil {
+		log.Fatal("register error:", err)
 	}
-
-	log.Println("server start listen:", lis.Addr())
-
-	addr <- lis.Addr().String()
-	mrpc.Accept(lis)
+	// pick a free port
+	l, err := net.Listen("tcp", ":0")
+	if err != nil {
+		log.Fatal("network error:", err)
+	}
+	log.Println("start rpc server on", l.Addr())
+	addr <- l.Addr().String()
+	mrpc.Accept(l)
 }
 
 func main() {
@@ -88,7 +104,7 @@ func main() {
 	log.SetFlags(0)
 	addr := make(chan string)
 	go startServer(addr)
-	client, _ := geerpc.Dial("tcp", <-addr)
+	client, _ := client.Dial("tcp", <-addr)
 	defer func() { _ = client.Close() }()
 
 	time.Sleep(time.Second)

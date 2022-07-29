@@ -10,8 +10,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ylt94/mrpc/service"
-
 	"github.com/ylt94/mrpc/core"
 )
 
@@ -44,7 +42,7 @@ func Register(rcvr interface{}) error {
 }
 
 func (server *Server) Register(rcvr interface{}) error {
-	s := service.NewService(rcvr)
+	s := NewService(rcvr)
 	if _, dup := server.serviceMap.LoadOrStore(s.name, s); dup {
 		return errors.New("rpc: service already defined: " + s.name)
 	}
@@ -117,6 +115,7 @@ func (server *Server) serverCodec(cc core.Codec) {
 type request struct {
 	h            *core.Header
 	argv, replyv reflect.Value
+	mtype        *methodType
 	svc          *service
 }
 

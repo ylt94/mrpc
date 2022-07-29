@@ -177,7 +177,7 @@ func parseOptions(opts ...*mrpc.Option) (*mrpc.Option, error) {
 	return opt, nil
 }
 
-func Dail(network, address string, opts ...*mrpc.Option) (client *Client, err error) {
+func Dial(network, address string, opts ...*mrpc.Option) (client *Client, err error) {
 	opt, err := parseOptions(opts...)
 	if err != nil {
 		return nil, err

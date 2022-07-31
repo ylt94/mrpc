@@ -3,12 +3,14 @@ package mrpc
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net"
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/ylt94/mrpc/core"
 )
@@ -18,11 +20,14 @@ const MagicNumber = 0x3bef5c
 type Option struct {
 	MagicNumber int
 	CodecType   core.Type
+	ConnectTimeout time.Duration //0表示不限制
+	HandleTileout time.Duration
 }
 
 var DefaultOption = &Option{
 	MagicNumber: MagicNumber,
 	CodecType:   core.GobType,
+	ConnectTimeout: time.Second*5,
 }
 
 type Server struct {
@@ -165,14 +170,36 @@ func (server *Server) sendResponse(cc core.Codec, h *core.Header, body interface
 	}
 }
 
-func (server *Server) handleRequest(cc core.Codec, req *request, sending *sync.Mutex, wg *sync.WaitGroup) {
+func (server *Server) handleRequest(cc core.Codec, req *request, sending *sync.Mutex, wg *sync.WaitGroup, timeout time.Duration) {
 	defer wg.Done()
-	err := req.svc.call(req.mtype, req.argv, req.replyv)
-	if err != nil {
-		req.h.Error = err.Error()
-		server.sendResponse(cc, req.h, invalidRequest, sending)
+	//处理完
+	called := make(chan struct{})
+	//结果已发送
+	sent := make(chan struct{})
+	go func() {
+		err := req.svc.call(req.mtype, req.argv, req.replyv)
+		called <- struct{}{}
+		if err != nil {
+			req.h.Error = err.Error()
+			server.sendResponse(cc, req.h, invalidRequest, sending)
+			sent <- struct{}{}
+			return
+		}
+	}()
+
+	if timeout == 0 {
+		<- called
+		<- sent
+		return
 	}
-	server.sendResponse(cc, req.h, req.replyv.Interface(), sending)
+
+	select {
+		case <-time.After(timeout) :
+			req.h.Error = fmt.Sprintf("rpc server: request handle timeout: expect within %s", timeout)
+			server.sendResponse(cc, req.h, invalidRequest, sending)
+		case <- called:
+			<- sent
+	}
 }
 
 func (server *Server) findService(serviceMethod string) (svc *service, mtype *methodType, err error) {

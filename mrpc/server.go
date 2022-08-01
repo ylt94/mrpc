@@ -18,16 +18,16 @@ import (
 const MagicNumber = 0x3bef5c
 
 type Option struct {
-	MagicNumber int
-	CodecType   core.Type
+	MagicNumber    int
+	CodecType      core.Type
 	ConnectTimeout time.Duration //0表示不限制
-	HandleTileout time.Duration
+	HandleTimeout  time.Duration
 }
 
 var DefaultOption = &Option{
-	MagicNumber: MagicNumber,
-	CodecType:   core.GobType,
-	ConnectTimeout: time.Second*5,
+	MagicNumber:    MagicNumber,
+	CodecType:      core.GobType,
+	ConnectTimeout: time.Second * 5,
 }
 
 type Server struct {
@@ -91,12 +91,12 @@ func (server *Server) ServerConn(conn io.ReadWriteCloser) {
 	}
 
 	//实例化协议类并开始处理
-	server.serverCodec(f(conn))
+	server.serverCodec(f(conn), &opt)
 }
 
 var invalidRequest = struct{}{}
 
-func (server *Server) serverCodec(cc core.Codec) {
+func (server *Server) serverCodec(cc core.Codec, opt *Option) {
 	sending := new(sync.Mutex)
 	wg := new(sync.WaitGroup)
 
@@ -111,7 +111,7 @@ func (server *Server) serverCodec(cc core.Codec) {
 		}
 		wg.Add(1)
 		//处理请求，应答
-		go server.handleRequest(cc, req, sending, wg)
+		go server.handleRequest(cc, req, sending, wg, opt.HandleTimeout)
 	}
 	wg.Wait()
 	_ = cc.Close()
@@ -185,20 +185,21 @@ func (server *Server) handleRequest(cc core.Codec, req *request, sending *sync.M
 			sent <- struct{}{}
 			return
 		}
+		server.sendResponse(cc, req.h, req.replyv.Interface(), sending)
+		sent <- struct{}{}
 	}()
-
 	if timeout == 0 {
-		<- called
-		<- sent
+		<-called
+		<-sent
 		return
 	}
 
 	select {
-		case <-time.After(timeout) :
-			req.h.Error = fmt.Sprintf("rpc server: request handle timeout: expect within %s", timeout)
-			server.sendResponse(cc, req.h, invalidRequest, sending)
-		case <- called:
-			<- sent
+	case <-time.After(timeout):
+		req.h.Error = fmt.Sprintf("rpc server: request handle timeout: expect within %s", timeout)
+		server.sendResponse(cc, req.h, invalidRequest, sending)
+	case <-called:
+		<-sent
 	}
 }
 

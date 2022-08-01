@@ -181,12 +181,12 @@ func parseOptions(opts ...*mrpc.Option) (*mrpc.Option, error) {
 
 type clientResult struct {
 	client *Client
-	err error
+	err    error
 }
 
 type newClientFunc func(conn net.Conn, opts *mrpc.Option) (client *Client, err error)
 
-func dialTimeout(f newClientFunc, netWork, address string ,opts ...*mrpc.Option) (client *Client, err error) {
+func dialTimeout(f newClientFunc, netWork, address string, opts ...*mrpc.Option) (client *Client, err error) {
 	opt, err := parseOptions(opts...)
 	if err != nil {
 		return nil, err
@@ -214,10 +214,10 @@ func dialTimeout(f newClientFunc, netWork, address string ,opts ...*mrpc.Option)
 	}
 
 	select {
-		case <-time.After(opt.ConnectTimeout):
-			return nil, fmt.Errorf("rpc client: connect timeout: expect within %s", opt.ConnectTimeout)
-		case result := <-ch:
-			return result.client, result.err
+	case <-time.After(opt.ConnectTimeout):
+		return nil, fmt.Errorf("rpc client: connect timeout: expect within %s", opt.ConnectTimeout)
+	case result := <-ch:
+		return result.client, result.err
 	}
 }
 
@@ -242,7 +242,6 @@ func (client *Client) send(call *Call) {
 
 	if err := client.cc.Write(&client.header, call.Args); err != nil {
 		call := client.removeCall(seq)
-
 		if call != nil {
 			call.Error = err
 			call.done()
@@ -270,10 +269,10 @@ func (client *Client) Go(serviceMethod string, args, reply interface{}, done cha
 func (client *Client) Call(ctx context.Context, serviceMethod string, args, reply interface{}) error {
 	call := client.Go(serviceMethod, args, reply, make(chan *Call, 1))
 	select {
-		case <-ctx.Done():
-			client.removeCall(call.Seq)
-			return errors.New("rpc client: call failed: " + ctx.Err().Error())
-		case call := <-call.Done:
-			return  call.Error
+	case <-ctx.Done():
+		client.removeCall(call.Seq)
+		return errors.New("rpc client: call failed: " + ctx.Err().Error())
+	case call := <-call.Done:
+		return call.Error
 	}
 }

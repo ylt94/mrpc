@@ -29,7 +29,7 @@ type MultiServersDiscovery struct {
 	index   int
 }
 
-func NewMutilServerDiscovery(servers []string) *MultiServersDiscovery {
+func NewMultiServerDiscovery(servers []string) *MultiServersDiscovery {
 	d := &MultiServersDiscovery{
 		servers: servers,
 		r:       rand.New(rand.NewSource(time.Now().UnixNano())),
